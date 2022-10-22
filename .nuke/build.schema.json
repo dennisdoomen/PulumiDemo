@@ -81,6 +81,9 @@
           "type": "string",
           "description": "The version of Pulumi to download and use"
         },
+        "RequiresDeployment": {
+          "type": "boolean"
+        },
         "Root": {
           "type": "string",
           "description": "Root directory during build execution"

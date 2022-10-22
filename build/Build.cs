@@ -59,7 +59,7 @@ class Build : NukeBuild
     string PulumiConfigPassphrase = null;
 
     [Parameter]
-    string[] Labels = new string[0];
+    bool RequiresDeployment;
     
     [Parameter]
     string PulumiAccessToken;
@@ -86,11 +86,6 @@ class Build : NukeBuild
         .DependsOn(Restore)
         .Executes(() =>
         {
-            foreach (var label in Labels)
-            {
-                Log.Information($"Label: {label}");
-            }
-            
             DotNetBuild(s => s
                 .SetProjectFile(Solution)
                 .SetConfiguration(Configuration)
@@ -133,12 +128,12 @@ class Build : NukeBuild
 
             if (!File.Exists(ArtifactsDirectory / filename))
             {
-                Logger.Info($"Downloading Pulumi binaries from {urlToDownloadFrom}");
+                Log.Information($"Downloading Pulumi binaries from {urlToDownloadFrom}");
                 HttpDownloadFile(urlToDownloadFrom, ArtifactsDirectory / filename);
             }
             else
             {
-                Logger.Info($"Binaries for Pulumi {PulumiVersion} were already downloaded");
+                Log.Information($"Binaries for Pulumi {PulumiVersion} were already downloaded");
             }
 
             AbsolutePath binaryFolder = RootDirectory / "lib";
@@ -147,7 +142,7 @@ class Build : NukeBuild
             if (!File.Exists(pulumiExe))
             {
                 EnsureCleanDirectory(binaryFolder);
-                Logger.Info($"Unzipped Pulumi binaries to {binaryFolder}");
+                Log.Information($"Unzipped Pulumi binaries to {binaryFolder}");
                 Uncompress(ArtifactsDirectory / filename, binaryFolder);
 
                 if (EnvironmentInfo.IsLinux)
@@ -157,7 +152,7 @@ class Build : NukeBuild
             }
             else
             {
-                Logger.Info("The correct binaries were already unzipped");
+                Log.Information("The correct binaries were already unzipped");
             }
 
             Environment.SetEnvironmentVariable("Path",
@@ -165,12 +160,12 @@ class Build : NukeBuild
         });
 
     Target RunPulumiUp => _ => _
-        .DependsOn(DownloadPulumi)
         .DependsOn(BuildContainer)
-        .Requires(() => AwsRegion)
-        .Requires(() => AwsSecretAccessKey)
-        .Requires(() => AwsAccessKeyId)
-        .Requires(() => PulumiConfigPassphrase)
+        .DependsOn(DownloadPulumi)
+        .OnlyWhenStatic(() => AwsRegion != null)
+        .OnlyWhenStatic(() => AwsSecretAccessKey != null)
+        .OnlyWhenStatic(() => AwsAccessKeyId != null)
+        .OnlyWhenStatic(() => PulumiConfigPassphrase != null)
         .Executes(() =>
         {
             var workingDirectory = Solution.GetProject("Deploy")!.Directory;
@@ -201,12 +196,20 @@ class Build : NukeBuild
                 PulumiStackSelect(s => 
                     s.SetStackName(GitVersion.EscapedBranchName)
                     .SetProcessWorkingDirectory(workingDirectory));
-                
             }
-            
-            // If we're using a local login, we need to update the local stack with the AWS state 
-            PulumiPreview(s => s
-                .SetRefresh(true)
-                .SetProcessWorkingDirectory(workingDirectory));
+
+            if (RequiresDeployment)
+            {
+                PulumiUp(s => s
+                    .SetRefresh(true)
+                    .SetYes(true)
+                    .SetProcessWorkingDirectory(workingDirectory));
+            }
+            else
+            {
+                PulumiPreview(s => s
+                    .SetRefresh(true)
+                    .SetProcessWorkingDirectory(workingDirectory));
+            }
         });
 }
