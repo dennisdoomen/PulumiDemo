@@ -6,6 +6,15 @@
     "build": {
       "type": "object",
       "properties": {
+        "AwsAccessKeyId": {
+          "type": "string"
+        },
+        "AwsRegion": {
+          "type": "string"
+        },
+        "AwsSecretAccessKey": {
+          "type": "string"
+        },
         "Configuration": {
           "type": "string",
           "description": "Configuration to build - Default is 'Debug' (local) or 'Release' (server)",
@@ -62,6 +71,16 @@
             "type": "string"
           }
         },
+        "PulumiAccessToken": {
+          "type": "string"
+        },
+        "PulumiConfigPassphrase": {
+          "type": "string"
+        },
+        "PulumiVersion": {
+          "type": "string",
+          "description": "The version of Pulumi to download and use"
+        },
         "Root": {
           "type": "string",
           "description": "Root directory during build execution"
@@ -72,9 +91,12 @@
           "items": {
             "type": "string",
             "enum": [
+              "BuildContainer",
               "Clean",
               "Compile",
-              "Restore"
+              "DownloadPulumi",
+              "Restore",
+              "RunPulumiUp"
             ]
           }
         },
@@ -88,9 +110,12 @@
           "items": {
             "type": "string",
             "enum": [
+              "BuildContainer",
               "Clean",
               "Compile",
-              "Restore"
+              "DownloadPulumi",
+              "Restore",
+              "RunPulumiUp"
             ]
           }
         },
