@@ -1,0 +1,29 @@
+﻿name: build
+
+on:
+  pull_request:
+  push:
+  label:
+    types: [created, edited]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    env:
+      DOTNET_NOLOGO: true
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Run NUKE
+        run: ./build.sh
+        env:
+          PulumiAccessToken: ${{ secrets.PULUMIACCESSTOKEN }}
+          PulumiConfigPassphrase: ${{ secrets.PULUMICONFIGPASSPHRASE }}
+          AwsAccessKeyId: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AwsSecretAccessKey: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          Labels: ${{ contains(github.event.pull_request.labels.*.name, 'deploy') }}

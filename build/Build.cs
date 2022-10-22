@@ -11,6 +11,7 @@ using Nuke.Common.Tools.DotNet;
 using Nuke.Common.Tools.GitVersion;
 using Nuke.Common.Tools.Pulumi;
 using Nuke.Common.Utilities.Collections;
+using Octokit;
 using Serilog;
 using static Nuke.Common.IO.CompressionTasks;
 using static Nuke.Common.IO.FileSystemTasks;
@@ -28,7 +29,7 @@ class Build : NukeBuild
     /// - JetBrains Rider            https://nuke.build/rider
     /// - Microsoft VisualStudio     https://nuke.build/visualstudio
     /// - Microsoft VSCode           https://nuke.build/vscode
-    public static int Main() => Execute<Build>(x => x.BuildContainer);
+    public static int Main() => Execute<Build>(x => x.RunPulumiUp);
 
     [Parameter("Configuration to build - Default is 'Debug' (local) or 'Release' (server)")]
     readonly Configuration Configuration = IsLocalBuild ? Configuration.Debug : Configuration.Release;
@@ -56,6 +57,9 @@ class Build : NukeBuild
 
     [Parameter]
     string PulumiConfigPassphrase = null;
+
+    [Parameter]
+    string[] Labels = new string[0];
     
     [Parameter]
     string PulumiAccessToken;
@@ -71,6 +75,7 @@ class Build : NukeBuild
         });
 
     Target Restore => _ => _
+        .DependsOn(Clean)
         .Executes(() =>
         {
             DotNetRestore(s => s
@@ -81,6 +86,11 @@ class Build : NukeBuild
         .DependsOn(Restore)
         .Executes(() =>
         {
+            foreach (var label in Labels)
+            {
+                Log.Information($"Label: {label}");
+            }
+            
             DotNetBuild(s => s
                 .SetProjectFile(Solution)
                 .SetConfiguration(Configuration)
@@ -156,6 +166,7 @@ class Build : NukeBuild
 
     Target RunPulumiUp => _ => _
         .DependsOn(DownloadPulumi)
+        .DependsOn(BuildContainer)
         .Requires(() => AwsRegion)
         .Requires(() => AwsSecretAccessKey)
         .Requires(() => AwsAccessKeyId)
@@ -193,7 +204,7 @@ class Build : NukeBuild
                 
             }
             
-            // If we're running on the Sandbox, AWS resources could have disappeared. 
+            // If we're using a local login, we need to update the local stack with the AWS state 
             PulumiPreview(s => s
                 .SetRefresh(true)
                 .SetProcessWorkingDirectory(workingDirectory));
