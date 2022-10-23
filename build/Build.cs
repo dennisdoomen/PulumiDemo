@@ -20,6 +20,7 @@ using static Nuke.Common.Tooling.ProcessTasks;
 using static Nuke.Common.Tools.Docker.DockerTasks;
 using static Nuke.Common.Tools.DotNet.DotNetTasks;
 using static Nuke.Common.Tools.Pulumi.PulumiTasks;
+using FileMode = System.IO.FileMode;
 
 [ShutdownDotNetAfterServerBuild]
 class Build : NukeBuild
@@ -68,6 +69,7 @@ class Build : NukeBuild
 
     Target Clean => _ => _
         .Before(Restore)
+        .OnlyWhenDynamic(() => IsServerBuild)
         .Executes(() =>
         {
             SourceDirectory.GlobDirectories("**/bin", "**/obj").ForEach(DeleteDirectory);
@@ -116,6 +118,7 @@ class Build : NukeBuild
         });
 
     Target DownloadPulumi => _ => _
+        .After(BuildContainer)
         .Executes(() =>
         {
             EnsureExistingDirectory(ArtifactsDirectory);
@@ -129,7 +132,11 @@ class Build : NukeBuild
             if (!File.Exists(ArtifactsDirectory / filename))
             {
                 Log.Information($"Downloading Pulumi binaries from {urlToDownloadFrom}");
-                HttpDownloadFile(urlToDownloadFrom, ArtifactsDirectory / filename);
+                HttpDownloadFile(urlToDownloadFrom, ArtifactsDirectory / filename, FileMode.Create, s =>
+                {
+                    s.Timeout = TimeSpan.FromSeconds(30);
+                    return s;
+                });
             }
             else
             {
@@ -165,15 +172,9 @@ class Build : NukeBuild
         .OnlyWhenStatic(() => AwsRegion != null)
         .OnlyWhenStatic(() => AwsSecretAccessKey != null)
         .OnlyWhenStatic(() => AwsAccessKeyId != null)
-        .OnlyWhenStatic(() => PulumiConfigPassphrase != null)
         .Executes(() =>
         {
             var workingDirectory = Solution.GetProject("Deploy")!.Directory;
-            
-            Environment.SetEnvironmentVariable("PULUMI_CONFIG_PASSPHRASE", PulumiConfigPassphrase);
-            Environment.SetEnvironmentVariable("AWS_ACCESS_KEY_ID", AwsAccessKeyId);
-            Environment.SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", AwsSecretAccessKey);
-            Environment.SetEnvironmentVariable("AWS_REGION", AwsRegion);
             
             if (PulumiAccessToken != null)
             {
@@ -182,6 +183,7 @@ class Build : NukeBuild
             }
             else
             {
+                Environment.SetEnvironmentVariable("PULUMI_CONFIG_PASSPHRASE", PulumiConfigPassphrase);
                 Pulumi("login --local", workingDirectory: workingDirectory);
             }
             
@@ -197,6 +199,10 @@ class Build : NukeBuild
                     s.SetStackName(GitVersion.EscapedBranchName)
                     .SetProcessWorkingDirectory(workingDirectory));
             }
+
+            Environment.SetEnvironmentVariable("AWS_ACCESS_KEY_ID", AwsAccessKeyId);
+            Environment.SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", AwsSecretAccessKey);
+            Environment.SetEnvironmentVariable("AWS_REGION", AwsRegion);
 
             if (RequiresDeployment)
             {
