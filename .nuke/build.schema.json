@@ -94,7 +94,6 @@
           "items": {
             "type": "string",
             "enum": [
-              "BuildContainer",
               "Clean",
               "Compile",
               "DownloadPulumi",
@@ -113,7 +112,6 @@
           "items": {
             "type": "string",
             "enum": [
-              "BuildContainer",
               "Clean",
               "Compile",
               "DownloadPulumi",

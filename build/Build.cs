@@ -2,22 +2,18 @@ using System;
 using System.IO;
 using Nuke.Common;
 using Nuke.Common.CI;
-using Nuke.Common.Git;
 using Nuke.Common.IO;
 using Nuke.Common.ProjectModel;
 using Nuke.Common.Tooling;
-using Nuke.Common.Tools.Docker;
 using Nuke.Common.Tools.DotNet;
 using Nuke.Common.Tools.GitVersion;
 using Nuke.Common.Tools.Pulumi;
 using Nuke.Common.Utilities.Collections;
-using Octokit;
 using Serilog;
 using static Nuke.Common.IO.CompressionTasks;
 using static Nuke.Common.IO.FileSystemTasks;
 using static Nuke.Common.IO.HttpTasks;
 using static Nuke.Common.Tooling.ProcessTasks;
-using static Nuke.Common.Tools.Docker.DockerTasks;
 using static Nuke.Common.Tools.DotNet.DotNetTasks;
 using static Nuke.Common.Tools.Pulumi.PulumiTasks;
 using FileMode = System.IO.FileMode;
@@ -54,7 +50,7 @@ class Build : NukeBuild
     string AwsRegion = "eu-west-1";
 
     [Parameter("The version of Pulumi to download and use")]
-    string PulumiVersion = "v3.43.1";
+    string PulumiVersion = "v3.44.1";
 
     [Parameter]
     string PulumiConfigPassphrase = null;
@@ -97,28 +93,8 @@ class Build : NukeBuild
                 .EnableNoRestore());
         });
 
-    Target BuildContainer => _ => _
-        .DependsOn(Compile)
-        .Executes(() =>
-        {
-            DockerLogger = RedirectErrorLogger;
-
-            DockerBuild(s => s
-                .SetTag("dennis/minimalapi:" + GitVersion.EscapedBranchName)
-                .SetBuildArg($"CONFIGURATION={Configuration}")
-                .EnableNoCache()
-                .EnableRm()
-                .SetFile(SourceDirectory / "minimalapi.dockerfile")
-                .SetPath(RootDirectory)
-            );
-
-            DockerSave(s => s
-                .SetImages("dennis/minimalapi:" + GitVersion.EscapedBranchName)
-                .SetOutput(ArtifactsDirectory / $"minimal_api_{GitVersion.EscapedBranchName}.tar.gz"));
-        });
-
     Target DownloadPulumi => _ => _
-        .After(BuildContainer)
+        .After(Compile)
         .Executes(() =>
         {
             EnsureExistingDirectory(ArtifactsDirectory);
@@ -167,8 +143,8 @@ class Build : NukeBuild
         });
 
     Target RunPulumiUp => _ => _
-        .DependsOn(BuildContainer)
         .DependsOn(DownloadPulumi)
+        .DependsOn(Compile)
         .OnlyWhenStatic(() => AwsRegion != null)
         .OnlyWhenStatic(() => AwsSecretAccessKey != null)
         .OnlyWhenStatic(() => AwsAccessKeyId != null)
@@ -203,12 +179,15 @@ class Build : NukeBuild
             Environment.SetEnvironmentVariable("AWS_ACCESS_KEY_ID", AwsAccessKeyId);
             Environment.SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", AwsSecretAccessKey);
             Environment.SetEnvironmentVariable("AWS_REGION", AwsRegion);
+            Environment.SetEnvironmentVariable("Configuration", Configuration);
+            Environment.SetEnvironmentVariable("Root", SourceDirectory);
 
             if (RequiresDeployment)
             {
                 PulumiUp(s => s
-                    .SetRefresh(true)
                     .SetYes(true)
+                    .SetSkipPreview(true)
+                    .SetRefresh(true)
                     .SetProcessWorkingDirectory(workingDirectory));
             }
             else
