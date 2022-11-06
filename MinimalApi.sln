@@ -5,7 +5,7 @@ VisualStudioVersion = 16.0.30114.105
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{9D58A3E3-90CC-487D-9A33-831CE3528280}"
 	ProjectSection(SolutionItems) = preProject
-		src\minimalapi.dockerfile = src\minimalapi.dockerfile
+		src\dockerfile = src\dockerfile
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MinimalApi", "src\MinimalApi\MinimalApi.csproj", "{1A46A3A4-1A56-49E9-8BF7-4091F53915BB}"

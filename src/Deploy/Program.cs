@@ -1,51 +1,63 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using Pulumi;
-using Pulumi.Aws.Ecr;
-using Pulumi.Docker;
+using Pulumi.Aws.Ecs;
+using Pulumi.Awsx.Ecr;
+using Pulumi.Awsx.Ecs;
+using Pulumi.Awsx.Ecs.Inputs;
+using Pulumi.Awsx.Lb;
 
-return await Deployment.RunAsync(async () =>
+return await Deployment.RunAsync(() =>
 {
-    string rootDirectory = Environment.GetEnvironmentVariable("Root");
-    string configuration = Environment.GetEnvironmentVariable("Configuration");
+    string? rootDirectory = Environment.GetEnvironmentVariable("Root");
+    ArgumentNullException.ThrowIfNull(rootDirectory);
 
-    var ecr = new Repository("minimalapi", new RepositoryArgs());
+    string configuration = Environment.GetEnvironmentVariable("Configuration") ?? "Debug";
 
-    var credentials = GetCredentials.Invoke(new GetCredentialsInvokeArgs
+    var ecr = new Repository("minimal-ecr");
+
+    var image = new Image("minimal-image", new ImageArgs
     {
-        RegistryId = ecr.RegistryId
+        RepositoryUrl = ecr.Url,
+        Dockerfile = $"{rootDirectory}/dockerfile",
+        Path = $"{rootDirectory}",
+        Args = new InputMap<string>
+        {
+            { "CONFIGURATION", configuration }
+        },
     });
 
-    var decodedCredentials = credentials.Apply(o => Encoding.UTF8.GetString(
-        Convert.FromBase64String(o.AuthorizationToken)));
+    var cluster = new Cluster("minimal-cluster");
 
-    var registry = new ImageRegistry
-    {
-        Username = decodedCredentials.Apply(c => c.Split(":").First()),
-        Password = decodedCredentials.Apply(c => c.Split(":").Last()),
-        Server = credentials.Apply(c => c.ProxyEndpoint)
-    };
+    var lb = new ApplicationLoadBalancer("minimal-alb");
 
-    var image = new Image("minimalapi", new ImageArgs
+    var service = new FargateService("minimal-service", new FargateServiceArgs
     {
-        Build = new DockerBuild
+        Cluster = cluster.Arn,
+        TaskDefinitionArgs = new FargateServiceTaskDefinitionArgs
         {
-            Context = rootDirectory,
-            Dockerfile = $"{rootDirectory}/minimalapi.dockerfile",
-            Args = new Dictionary<string, string>
+            Container = new TaskDefinitionContainerDefinitionArgs
             {
-                ["CONFIGURATION"] = configuration
+                Memory = 128,
+                Cpu = 512,
+                Image = image.ImageUri,
+                Essential = true,
+                PortMappings = new TaskDefinitionPortMappingArgs
+                {
+                    ContainerPort = 80,
+                    TargetGroup = lb.DefaultTargetGroup
+                },
+                Environment  = new TaskDefinitionKeyValuePairArgs
+                {
+                    Name = "ASPNETCORE_ENVIRONMENT",
+                    Value = "Development"
+                }  
             }
-        },
-        ImageName = Output.Format($"{ecr.RepositoryUrl}:v1.0.0"),
-        LocalImageName = "minimalapi:v1.0.0",
-        Registry = registry
+        }
     });
 
     return new Dictionary<string, object?>
     {
-        ["ImageName"] = image.ImageName
+        ["Public URL"] = Output.Format($"http://{lb.LoadBalancer.Apply(x => x.DnsName)}/swagger/index.html")
     };
 });

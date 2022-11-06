@@ -27,6 +27,14 @@
           "type": "boolean",
           "description": "Indicates to continue a previously failed build attempt"
         },
+        "Deploy": {
+          "type": "boolean",
+          "description": "Tells the script to provision the environment using Pulumi"
+        },
+        "Destroy": {
+          "type": "boolean",
+          "description": "Tells the script to destroy the environment using Pulumi"
+        },
         "Help": {
           "type": "boolean",
           "description": "Shows the help text for this build assembly"
@@ -81,9 +89,6 @@
           "type": "string",
           "description": "The version of Pulumi to download and use"
         },
-        "RequiresDeployment": {
-          "type": "boolean"
-        },
         "Root": {
           "type": "string",
           "description": "Root directory during build execution"
@@ -96,9 +101,13 @@
             "enum": [
               "Clean",
               "Compile",
+              "Default",
+              "Deprovision",
               "DownloadPulumi",
+              "Provision",
               "Restore",
-              "RunPulumiUp"
+              "SelectPulumiStack",
+              "SignIntoPulumi"
             ]
           }
         },
@@ -114,9 +123,13 @@
             "enum": [
               "Clean",
               "Compile",
+              "Default",
+              "Deprovision",
               "DownloadPulumi",
+              "Provision",
               "Restore",
-              "RunPulumiUp"
+              "SelectPulumiStack",
+              "SignIntoPulumi"
             ]
           }
         },

@@ -14,7 +14,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+app.UseHealthChecks("/");
 
 var summaries = new[]
 {
