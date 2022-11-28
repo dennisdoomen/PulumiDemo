@@ -2,6 +2,9 @@
 
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
+    <RestoreAdditionalProjectSources>
+      https://api.nuget.org/v3/index.json
+    </RestoreAdditionalProjectSources>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>

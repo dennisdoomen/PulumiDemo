@@ -26,7 +26,7 @@ class Build : NukeBuild
     /// - JetBrains Rider            https://nuke.build/rider
     /// - Microsoft VisualStudio     https://nuke.build/visualstudio
     /// - Microsoft VSCode           https://nuke.build/vscode
-    public static int Main() => Execute<Build>(x => x.RunPulumiUp);
+    public static int Main() => Execute<Build>(x => x.Default);
 
     [Parameter("Configuration to build - Default is 'Debug' (local) or 'Release' (server)")]
     readonly Configuration Configuration = IsLocalBuild ? Configuration.Debug : Configuration.Release;
@@ -50,13 +50,16 @@ class Build : NukeBuild
     string AwsRegion = "eu-west-1";
 
     [Parameter("The version of Pulumi to download and use")]
-    string PulumiVersion = "v3.44.1";
+    string PulumiVersion = "v3.48.0";
 
     [Parameter]
     string PulumiConfigPassphrase = null;
 
-    [Parameter]
-    bool RequiresDeployment;
+    [Parameter("Tells the script to provision the environment using Pulumi")]
+    bool Deploy;
+
+    [Parameter("Tells the script to destroy the environment using Pulumi")]
+    bool Destroy;
     
     [Parameter]
     string PulumiAccessToken;
@@ -142,12 +145,8 @@ class Build : NukeBuild
                 Environment.GetEnvironmentVariable("Path") + $";{binaryFolder}/pulumi/bin");
         });
 
-    Target RunPulumiUp => _ => _
+    Target SignIntoPulumi => _ => _
         .DependsOn(DownloadPulumi)
-        .DependsOn(Compile)
-        .OnlyWhenStatic(() => AwsRegion != null)
-        .OnlyWhenStatic(() => AwsSecretAccessKey != null)
-        .OnlyWhenStatic(() => AwsAccessKeyId != null)
         .Executes(() =>
         {
             var workingDirectory = Solution.GetProject("Deploy")!.Directory;
@@ -162,7 +161,15 @@ class Build : NukeBuild
                 Environment.SetEnvironmentVariable("PULUMI_CONFIG_PASSPHRASE", PulumiConfigPassphrase);
                 Pulumi("login --local", workingDirectory: workingDirectory);
             }
-            
+        });
+
+    Target SelectPulumiStack => _ => _
+        .DependsOn(DownloadPulumi)
+        .DependsOn(SignIntoPulumi)
+        .Executes(() =>
+        {
+            var workingDirectory = Solution.GetProject("Deploy")!.Directory;
+
             try
             {
                 PulumiStackInit(s => s
@@ -173,8 +180,22 @@ class Build : NukeBuild
             {
                 PulumiStackSelect(s => 
                     s.SetStackName(GitVersion.EscapedBranchName)
-                    .SetProcessWorkingDirectory(workingDirectory));
+                        .SetProcessWorkingDirectory(workingDirectory));
             }
+        });
+
+    Target Provision => _ => _
+        .DependsOn(DownloadPulumi)
+        .DependsOn(SignIntoPulumi)
+        .DependsOn(SelectPulumiStack)
+        .DependsOn(Compile)
+        .OnlyWhenStatic(() => AwsRegion != null)
+        .OnlyWhenStatic(() => AwsSecretAccessKey != null)
+        .OnlyWhenStatic(() => AwsAccessKeyId != null)
+        .OnlyWhenStatic(() => !Destroy)
+        .Executes(() =>
+        {
+            var workingDirectory = Solution.GetProject("Deploy")!.Directory;
 
             Environment.SetEnvironmentVariable("AWS_ACCESS_KEY_ID", AwsAccessKeyId);
             Environment.SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", AwsSecretAccessKey);
@@ -182,7 +203,7 @@ class Build : NukeBuild
             Environment.SetEnvironmentVariable("Configuration", Configuration);
             Environment.SetEnvironmentVariable("Root", SourceDirectory);
 
-            if (RequiresDeployment)
+            if (Deploy)
             {
                 PulumiUp(s => s
                     .SetYes(true)
@@ -190,11 +211,41 @@ class Build : NukeBuild
                     .SetRefresh(true)
                     .SetProcessWorkingDirectory(workingDirectory));
             }
-            else
+            else if (!Destroy)
             {
                 PulumiPreview(s => s
                     .SetRefresh(true)
                     .SetProcessWorkingDirectory(workingDirectory));
             }
         });
+    Target Deprovision => _ => _
+        .DependsOn(DownloadPulumi)
+        .DependsOn(SignIntoPulumi)
+        .DependsOn(SelectPulumiStack)
+        .DependsOn(Compile)
+        .After(Provision)
+        .OnlyWhenStatic(() => AwsRegion != null)
+        .OnlyWhenStatic(() => AwsSecretAccessKey != null)
+        .OnlyWhenStatic(() => AwsAccessKeyId != null)
+        .OnlyWhenStatic(() => Destroy && !Deploy)
+        .Executes(() =>
+        {
+            var workingDirectory = Solution.GetProject("Deploy")!.Directory;
+
+            Environment.SetEnvironmentVariable("AWS_ACCESS_KEY_ID", AwsAccessKeyId);
+            Environment.SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", AwsSecretAccessKey);
+            Environment.SetEnvironmentVariable("AWS_REGION", AwsRegion);
+            Environment.SetEnvironmentVariable("Configuration", Configuration);
+            Environment.SetEnvironmentVariable("Root", SourceDirectory);
+
+            PulumiDestroy(s => s
+                .SetYes(true)
+                .SetSkipPreview(true)
+                .SetRefresh(true)
+                .SetProcessWorkingDirectory(workingDirectory));
+        });
+
+    Target Default => _ => _
+        .DependsOn(Provision)
+        .DependsOn(Deprovision);
 }
