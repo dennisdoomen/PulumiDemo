@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading;
 using Pulumi;
 using Pulumi.Aws.Ecs;
 using Pulumi.Awsx.Ecr;
@@ -9,6 +11,8 @@ using Pulumi.Awsx.Lb;
 
 return await Deployment.RunAsync(() =>
 {
+    WaitForDebuggerIfNeeded();
+        
     string? rootDirectory = Environment.GetEnvironmentVariable("Root");
     ArgumentNullException.ThrowIfNull(rootDirectory);
 
@@ -61,3 +65,16 @@ return await Deployment.RunAsync(() =>
         ["Public URL"] = Output.Format($"http://{lb.LoadBalancer.Apply(x => x.DnsName)}/swagger/index.html")
     };
 });
+
+void WaitForDebuggerIfNeeded()
+{
+    bool.TryParse(Environment.GetEnvironmentVariable("PULUMI_DEBUG"), out var debug);
+    if (debug && !Deployment.Instance.IsDryRun)
+    {
+        Log.Info("Waiting for debugger to attach");
+        while (!Debugger.IsAttached)
+        {
+            Thread.Sleep(100);
+        }
+    }
+}
