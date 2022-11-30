@@ -31,7 +31,7 @@ return await Deployment.RunAsync(() =>
         },
     });
 
-    var cluster = new Cluster("minimal-cluster");
+    var cluster = new Cluster("maximum-cluster");
 
     var lb = new ApplicationLoadBalancer("minimal-alb");
 
