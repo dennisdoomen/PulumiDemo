@@ -2,10 +2,13 @@ using System;
 using System.IO;
 using Nuke.Common;
 using Nuke.Common.CI;
+using Nuke.Common.CI.GitHubActions;
+using Nuke.Common.Git;
 using Nuke.Common.IO;
 using Nuke.Common.ProjectModel;
 using Nuke.Common.Tooling;
 using Nuke.Common.Tools.DotNet;
+using Nuke.Common.Tools.GitHub;
 using Nuke.Common.Tools.GitVersion;
 using Nuke.Common.Tools.Pulumi;
 using Nuke.Common.Utilities.Collections;
@@ -36,7 +39,7 @@ class Build : NukeBuild
 
     [GitVersion]
     readonly GitVersion GitVersion;
-
+    
     AbsolutePath SourceDirectory => RootDirectory / "src";
     AbsolutePath ArtifactsDirectory => RootDirectory / "artifacts";
 
@@ -50,7 +53,7 @@ class Build : NukeBuild
     string AwsRegion = "eu-west-1";
 
     [Parameter("The version of Pulumi to download and use")]
-    string PulumiVersion = "v3.48.0";
+    string PulumiVersion = "v3.61.0";
 
     [Parameter]
     string PulumiConfigPassphrase = null;
@@ -63,8 +66,6 @@ class Build : NukeBuild
     
     [Parameter]
     string PulumiAccessToken;
-
-    readonly Action<OutputType, string> RedirectErrorLogger = (_, s) => Log.Information(s);
 
     Target Clean => _ => _
         .Before(Restore)
@@ -154,12 +155,12 @@ class Build : NukeBuild
             if (PulumiAccessToken != null)
             {
                 EnvironmentInfo.SetVariable("PULUMI_ACCESS_TOKEN", PulumiAccessToken);
-                Pulumi("login", workingDirectory: workingDirectory);
+                Pulumi("login", workingDirectory: workingDirectory, customLogger: AdjustPulumiLogging);
             }
             else
             {
                 Environment.SetEnvironmentVariable("PULUMI_CONFIG_PASSPHRASE", PulumiConfigPassphrase);
-                Pulumi("login --local", workingDirectory: workingDirectory);
+                Pulumi("login --local", workingDirectory: workingDirectory, customLogger: AdjustPulumiLogging);
             }
         });
 
@@ -174,10 +175,13 @@ class Build : NukeBuild
             {
                 PulumiStackInit(s => s
                     .SetOrganizationAndName(GitVersion.EscapedBranchName)
-                    .SetProcessWorkingDirectory(workingDirectory));
+                    .SetProcessWorkingDirectory(workingDirectory)
+                    .SetProcessCustomLogger((_, _) => {}));
             }
             catch
             {
+                // We assume the stack already exists, 
+                
                 PulumiStackSelect(s => 
                     s.SetStackName(GitVersion.EscapedBranchName)
                         .SetProcessWorkingDirectory(workingDirectory));
@@ -209,15 +213,18 @@ class Build : NukeBuild
                     .SetYes(true)
                     .SetSkipPreview(true)
                     .SetRefresh(true)
-                    .SetProcessWorkingDirectory(workingDirectory));
+                    .SetProcessWorkingDirectory(workingDirectory)
+                    .SetProcessCustomLogger(AdjustPulumiLogging));
             }
             else if (!Destroy)
             {
                 PulumiPreview(s => s
                     .SetRefresh(true)
-                    .SetProcessWorkingDirectory(workingDirectory));
+                    .SetProcessWorkingDirectory(workingDirectory)
+                    .SetProcessCustomLogger(AdjustPulumiLogging));
             }
         });
+
     Target Deprovision => _ => _
         .DependsOn(DownloadPulumi)
         .DependsOn(SignIntoPulumi)
@@ -242,10 +249,24 @@ class Build : NukeBuild
                 .SetYes(true)
                 .SetSkipPreview(true)
                 .SetRefresh(true)
-                .SetProcessWorkingDirectory(workingDirectory));
+                .SetProcessWorkingDirectory(workingDirectory)
+                .SetProcessCustomLogger(AdjustPulumiLogging));
         });
 
     Target Default => _ => _
         .DependsOn(Provision)
         .DependsOn(Deprovision);
+
+    readonly Action<OutputType, string> AdjustPulumiLogging = (type, template) =>
+    {
+        if (type == OutputType.Err && !template.StartsWith("error:"))
+        {
+            // ReSharper disable once TemplateIsNotCompileTimeConstantProblem
+            Log.Information(template);
+        }
+        else
+        {
+            CustomLogger(type, template);
+        }
+    };
 }
