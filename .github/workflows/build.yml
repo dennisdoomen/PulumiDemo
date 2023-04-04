@@ -6,9 +6,6 @@ on:
       - labeled
       - unlabeled
       - synchronize
-  push:
-      branches:
-        - main
 
 jobs:
   build:
@@ -32,3 +29,12 @@ jobs:
           AwsSecretAccessKey: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           Deploy: ${{ contains(github.event.pull_request.labels.*.name, 'deploy') }}
           Destroy: ${{ contains(github.event.pull_request.labels.*.name, 'destroy') }}
+
+      - name: Remove provisioning labels
+        uses: actions-ecosystem/action-remove-labels@v1
+        with:
+          labels: |
+            deploy
+            destroy
+
+          
