@@ -150,7 +150,7 @@ class Build : NukeBuild
         .DependsOn(DownloadPulumi)
         .Executes(() =>
         {
-            var workingDirectory = Solution.GetProject("Deploy")!.Directory;
+            var workingDirectory = Solution.GetProject("Deploy.Aws")!.Directory;
             
             if (PulumiAccessToken != null)
             {
@@ -169,7 +169,7 @@ class Build : NukeBuild
         .DependsOn(SignIntoPulumi)
         .Executes(() =>
         {
-            var workingDirectory = Solution.GetProject("Deploy")!.Directory;
+            var workingDirectory = Solution.GetProject("Deploy.Aws")!.Directory;
 
             try
             {
@@ -199,7 +199,7 @@ class Build : NukeBuild
         .OnlyWhenStatic(() => !Destroy)
         .Executes(() =>
         {
-            var workingDirectory = Solution.GetProject("Deploy")!.Directory;
+            var workingDirectory = Solution.GetProject("Deploy.Aws")!.Directory;
 
             Environment.SetEnvironmentVariable("AWS_ACCESS_KEY_ID", AwsAccessKeyId);
             Environment.SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", AwsSecretAccessKey);
@@ -237,7 +237,7 @@ class Build : NukeBuild
         .OnlyWhenStatic(() => Destroy && !Deploy)
         .Executes(() =>
         {
-            var workingDirectory = Solution.GetProject("Deploy")!.Directory;
+            var workingDirectory = Solution.GetProject("Deploy.Aws")!.Directory;
 
             Environment.SetEnvironmentVariable("AWS_ACCESS_KEY_ID", AwsAccessKeyId);
             Environment.SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", AwsSecretAccessKey);

@@ -12,7 +12,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MinimalApi", "src\MinimalAp
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "_build", "build\_build.csproj", "{7F3FA4DF-4E9D-414F-98BF-C3033D14CA9F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Deploy", "src\Deploy\Deploy.csproj", "{EA6E2995-3B8A-4D77-93C9-528F7A5D79A6}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Deploy.Aws", "src\Deploy.Aws\Deploy.Aws.csproj", "{EA6E2995-3B8A-4D77-93C9-528F7A5D79A6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
