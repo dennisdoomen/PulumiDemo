@@ -5,6 +5,7 @@ using System.Threading;
 using Pulumi;
 using Pulumi.Aws.Ecs;
 using Pulumi.Awsx.Ecr;
+using Pulumi.Awsx.Ecr.Inputs;
 using Pulumi.Awsx.Ecs;
 using Pulumi.Awsx.Ecs.Inputs;
 using Pulumi.Awsx.Lb;
@@ -18,7 +19,10 @@ return await Deployment.RunAsync(() =>
 
     string configuration = Environment.GetEnvironmentVariable("Configuration") ?? "Debug";
 
-    var ecr = new Repository("minimal-ecr");
+    var ecr = new Repository("minimal-ecr", new RepositoryArgs
+    {
+        ForceDelete = true,
+    });
 
     var image = new Image("minimal-image", new ImageArgs
     {
@@ -38,12 +42,13 @@ return await Deployment.RunAsync(() =>
     var service = new FargateService("minimal-service", new FargateServiceArgs
     {
         Cluster = cluster.Arn,
+        AssignPublicIp = true,
         TaskDefinitionArgs = new FargateServiceTaskDefinitionArgs
         {
             Container = new TaskDefinitionContainerDefinitionArgs
             {
                 Memory = 128,
-                Cpu = 512,
+                Cpu = 768,
                 Image = image.ImageUri,
                 Essential = true,
                 PortMappings = new TaskDefinitionPortMappingArgs

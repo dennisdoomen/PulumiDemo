@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.IO;
 using Nuke.Common;
 using Nuke.Common.CI;
@@ -53,7 +54,7 @@ class Build : NukeBuild
     string AwsRegion = "eu-west-1";
 
     [Parameter("The version of Pulumi to download and use")]
-    string PulumiVersion = "v3.61.0";
+    string PulumiVersion = "v3.66.0";
 
     [Parameter]
     string PulumiConfigPassphrase = null;
