@@ -47,7 +47,7 @@ return await Deployment.RunAsync(() =>
         {
             Container = new TaskDefinitionContainerDefinitionArgs
             {
-                Memory = 128,
+                Memory = 256,
                 Cpu = 768,
                 Image = image.ImageUri,
                 Essential = true,
